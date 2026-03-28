@@ -2,195 +2,102 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Future Super Human - AI Squad Fix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUPER HUMAN 2026 - FINAL</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
-        .overlay { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(15, 15, 15, 0.98); color: #f1c40f; }
-        .btn { padding: 18px 45px; font-size: 26px; cursor: pointer; margin: 12px; background: #f1c40f; border: none; border-radius: 12px; font-weight: bold; box-shadow: 0 6px 0 #b8860b; color: #000; }
-        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b8860b; }
-        #hud { position: fixed; top: 20px; left: 20px; z-index: 100; color: white; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; border: 2px solid #f1c40f; display: none; pointer-events: none; }
-        #minimap-ui { position: fixed; top: 20px; right: 20px; width: 150px; height: 150px; border: 3px solid #fff; border-radius: 50%; overflow: hidden; z-index: 100; display: none; background: rgba(0,0,0,0.5); }
-        canvas#gameCanvas { display: none; position: absolute; top: 0; left: 0; z-index: 10; }
+        .ui-screen { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; color: #f1c40f; }
+        .btn { padding: 25px 60px; font-size: 32px; cursor: pointer; margin: 15px; background: #f1c40f; border: 4px solid #fff; border-radius: 20px; font-weight: bold; }
+        #hud { position: fixed; top: 15px; left: 15px; z-index: 100; color: white; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 10px; display: none; pointer-events: none; }
+        #radar { position: fixed; top: 15px; right: 15px; width: 140px; height: 140px; border: 3px solid #fff; border-radius: 50%; z-index: 100; display: none; background: rgba(0,0,0,0.5); overflow: hidden; }
+        canvas#g { display: none; position: absolute; top: 0; left: 0; z-index: 10; }
+        #rain { position: fixed; inset: 0; pointer-events: none; z-index: 50; background: rgba(40,40,80,0.2); display: none; }
     </style>
 </head>
 <body>
-
-    <div id="step-1" class="overlay">
-        <h1 style="font-size: 45px;">SUPER HUMAN: 隊友修正版</h1>
-        <button class="btn" onclick="nextStep(2, 1)">👤 單人模式</button>
-        <button class="btn" onclick="nextStep(2, 5)" style="background:#3498db; color:white; box-shadow: 0 6px 0 #2980b9;">👥 多人模式</button>
+    <div id="s1" class="ui-screen">
+        <h1>SUPER HUMAN 2026</h1>
+        <button class="btn" onclick="start(1)">👤 單人模式</button>
+        <button class="btn" onclick="document.getElementById('s1').style.display='none';document.getElementById('s2').style.display='flex';" style="background:#3498db;color:white;">👥 多人連線</button>
     </div>
-
-    <div id="step-2" class="overlay" style="display:none;">
-        <h1>選擇小隊總人數</h1>
-        <h2 style="color:white;"><span id="p-count">5</span> 人</h2>
-        <input type="range" min="2" max="10" value="5" oninput="document.getElementById('p-count').innerText=this.value" id="p-slider" style="width:300px; margin:20px;">
-        <button class="btn" onclick="nextStep(3)">下一步：查看說明</button>
+    <div id="s2" class="ui-screen" style="display:none;">
+        <h2>小隊人數: <span id="pv">5</span></h2>
+        <input type="range" min="2" max="10" value="5" oninput="document.getElementById('pv').innerText=this.value" id="ps" style="width:300px;height:40px;">
+        <button class="btn" onclick="start(document.getElementById('ps').value)">進入世界</button>
     </div>
-
-    <div id="step-3" class="overlay" style="display:none;">
-        <div style="background:#2c3e50; padding:30px; border-radius:15px; border:2px solid #f1c40f; max-width:450px; text-align:left; color:white;">
-            <h2 style="color:#f1c40f; text-align:center;">📜 遊戲說明單</h2>
-            <p>● <b>移動</b>：[W,A,S,D] | <b>跳躍</b>：[空白鍵]</p>
-            <p>● <b>挖掘/放置</b>：滑鼠[左鍵/右鍵]</p>
-            <p>● <b>攻擊/回血</b>：[K] / [Q] 鍵</p>
-            <p>● <b>隊友</b>：會自動幫你戰鬥與開路</p>
-            <button class="btn" onclick="finishSetup()" style="width:100%; margin-top:20px;">進入世界</button>
-        </div>
-    </div>
-
-    <div id="hud">❤️ HP: <span id="hp-txt">100</span> | 📍 座標: <span id="pos-txt">0,0</span></div>
-    <div id="minimap-ui"><canvas id="mCvs" width="150" height="150"></canvas></div>
-
-    <canvas id="gameCanvas"></canvas>
-
+    <div id="hud">❤️ <span id="hp">100</span> | 📍 <span id="pos">0,0</span> | 🕒 <span id="tm">12:00</span></div>
+    <div id="radar"><canvas id="rc" width="140" height="140"></canvas></div>
+    <div id="rain"></div>
+    <canvas id="g"></canvas>
 <script>
-    const cvs = document.getElementById('gameCanvas'), ctx = cvs.getContext('2d');
-    const mCvs = document.getElementById('mCvs'), mCtx = mCvs.getContext('2d');
-    
-    let active = false, world = {}, keys = {}, entities = [];
-    let p = { x: 0, y: -300, w: 22, h: 42, vx: 0, vy: 0, ground: false, hp: 100, maxHp: 100 };
-    let totalSquadSize = 1; // 預設 1 人
-    const TILE = 32;
-
-    function nextStep(step, val) {
-        document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
-        if (val !== undefined) totalSquadSize = val;
-        
-        if (step === 3 && totalSquadSize == 1) { // 單人直接跳說明
-            document.getElementById('step-3').style.display = 'flex';
-        } else if (step === 2 && totalSquadSize == 1) { // 單人不需要選人數
-            nextStep(3);
-        } else {
-            document.getElementById('step-' + step).style.display = 'flex';
-        }
+    const cvs=document.getElementById('g'),ctx=cvs.getContext('2d'),rcvs=document.getElementById('rc'),rctx=rcvs.getContext('2d');
+    let live=false, world={}, keys={}, ents=[], ticks=600, p={x:0,y:-200,w:22,h:42,vx:0,vy:0,hp:100,gr:false,hit:null};
+    function start(n){
+        document.querySelectorAll('.ui-screen').forEach(s=>s.style.display='none');
+        document.getElementById('hud').style.display='block';
+        document.getElementById('radar').style.display='block';
+        cvs.style.display='block'; cvs.width=window.innerWidth; cvs.height=window.innerHeight;
+        if(Math.random()<0.4){document.getElementById('rain').style.display='block';}
+        for(let i=0;i<n-1;i++) spawn('ally',(Math.random()-0.5)*600);
+        for(let i=0;i<5;i++) spawn('npc',(Math.random()-0.5)*2000);
+        live=true; loop();
     }
-
-    function finishSetup() {
-        // 更新最終人數 (如果是多人模式)
-        if (totalSquadSize > 1) {
-            totalSquadSize = parseInt(document.getElementById('p-slider').value);
-        }
-        
-        document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
-        document.getElementById('hud').style.display = 'block';
-        document.getElementById('minimap-ui').style.display = 'block';
-        cvs.style.display = 'block';
-        cvs.width = window.innerWidth; cvs.height = window.innerHeight;
-        
-        // 【關鍵修正】生成隊友 (總人數 - 你自己 1 人)
-        entities = []; // 清空
-        for(let i=0; i < (totalSquadSize - 1); i++) {
-            entities.push({ 
-                type: 'ally', 
-                x: (Math.random() - 0.5) * 200, // 隨機出現在你旁邊
-                y: -400, 
-                w: 22, h: 42, vx: 0, vy: 0, 
-                hp: 100, maxHp: 100,
-                aiTimer: 0
-            });
-        }
-        
-        active = true;
-        loop();
+    function spawn(t,x){ ents.push({type:t,x,y:-400,w:22,h:42,vx:0,vy:0,hp:100,max:100}); }
+    function getB(gx,gy){
+        if(world[gx+'_'+gy]!==undefined) return world[gx+'_'+gy];
+        let x=Math.abs(gx),h=35,amp=1;
+        if(x%100<70){h=28;amp=6;} if(x%100<50){h=15;amp=14;}
+        let f=Math.floor(h+Math.sin(gx*0.1)*amp);
+        if(x%100<65 && gy<f && gy>f-4 && Math.random()<0.08) return 3;
+        return gy<f?0:(gy===f?2:1);
     }
-
-    // 地形與物理邏輯
-    function getH(gx) { return Math.floor(30 + Math.sin(gx * 0.1) * 5); }
-    function getB(gx, gy) {
-        if (world[gx+'_'+gy] !== undefined) return world[gx+'_'+gy];
-        return gy < getH(gx) ? 0 : (gy === getH(gx) ? 2 : 1);
-    }
-    function check(x, y, w, h) {
-        for (let i = Math.floor(x/TILE); i <= Math.floor((x+w)/TILE); i++) {
-            for (let j = Math.floor(y/TILE); j <= Math.floor((y+h)/TILE); j++) {
-                if (getB(i, j) > 0) return true;
-            }
-        }
+    function check(x,y){
+        for(let i=Math.floor(x/32);i<=Math.floor((x+22)/32);i++)
+            for(let j=Math.floor(y/32);j<=Math.floor((y+42)/32);j++)
+                if(getB(i,j)>0) return true;
         return false;
     }
-
-    window.onkeydown = e => keys[e.code] = true;
-    window.onkeyup = e => keys[e.code] = false;
-    window.onmousedown = e => {
-        if(!active) return;
-        let gx = Math.floor((e.clientX + (p.x - cvs.width/2))/TILE);
-        let gy = Math.floor((e.clientY + (p.y - cvs.height/2))/TILE);
-        if(e.button === 0) world[gx+'_'+gy] = 0; // 挖
-        else if(getB(gx, gy) === 0) world[gx+'_'+gy] = 3; // 放石頭
-    };
-    window.oncontextmenu = e => e.preventDefault();
-
-    function loop() {
-        if (!active) return;
-        if (p.hp <= 0) { location.reload(); return; }
-
-        // 玩家物理
-        p.vy += 0.8; p.y += p.vy;
-        if (check(p.x, p.y, p.w, p.h)) {
-            if (p.vy > 0) { while(check(p.x, p.y, p.w, p.h)) p.y -= 0.5; p.ground = true; }
-            else { while(check(p.x, p.y, p.w, p.h)) p.y += 0.5; }
-            p.vy = 0;
-        } else p.ground = false;
-
-        let dx = (keys['KeyD']?5:0) - (keys['KeyA']?5:0);
-        if (dx !== 0) { p.x += dx; if (check(p.x, p.y, p.w, p.h)) p.x -= dx; }
-        if ((keys['Space'] || keys['KeyW']) && p.ground) p.vy = -14;
-
-        // 隊友與怪物 AI
-        entities.forEach(e => {
-            e.vy += 0.8; e.y += e.vy;
-            if (check(e.x, e.y, e.w, e.h)) { if (e.vy > 0) while(check(e.x, e.y, e.w, e.h)) e.y -= 0.5; e.vy = 0; }
-            
-            if (e.type === 'ally') { // 隊友跟隨你
-                let dist = p.x - e.x;
-                if (Math.abs(dist) > 60) e.x += Math.sign(dist) * 3;
-            } else { // 怪物追殺你
-                e.x += (p.x > e.x ? 2 : -2);
-                if (Math.abs(e.x - p.x) < 30) p.hp -= 0.1;
-            }
-        });
-
-        // 隨機生怪
-        if (Math.random() < 0.005) entities.push({ type:'mob', x:p.x+500, y:-400, w:22, h:42, vx:0, vy:0, hp:50, maxHp:50 });
-
-        // HUD 更新
-        document.getElementById('hp-txt').innerText = Math.ceil(p.hp);
-        document.getElementById('pos-txt').innerText = Math.floor(p.x/TILE) + "," + Math.floor(p.y/TILE);
-
-        render();
-        requestAnimationFrame(loop);
+    window.onkeydown=e=>{keys[e.code]=true;if(e.code==='KeyK')atk(p);if(e.code==='Escape')location.reload();};
+    window.onkeyup=e=>keys[e.code]=false;
+    window.onmousedown=e=>{if(!live)return;let gx=Math.floor((e.clientX+(p.x-cvs.width/2))/32),gy=Math.floor((e.clientY+(p.y-cvs.height/2))/32);world[gx+'_'+gy]=e.button===0?0:3;};
+    function atk(o,t=null){
+        ents.concat(p).forEach(e=>{if(e!==o && Math.abs(e.x-o.x)<70){if(t&&e!==t)return;e.hp-=20;e.vx=(e.x>o.x?12:-12);if(e===p)p.hit=o;}});
     }
-
-    function render() {
-        ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,cvs.width,cvs.height);
-        let cx = p.x - cvs.width/2, cy = p.y - cvs.height/2;
-
-        for(let x=Math.floor(cx/TILE); x<=Math.ceil((cx+cvs.width)/TILE); x++) {
-            for(let y=Math.floor(cy/TILE); y<=Math.ceil((cy+cvs.height)/TILE); y++) {
-                let b = getB(x, y);
-                if(b > 0) {
-                    ctx.fillStyle = b===2?'#2ecc71':(b===1?'#795548':'#bdc3c7');
-                    ctx.fillRect(x*TILE-cx, y*TILE-cy, TILE+1, TILE+1);
-                }
+    function loop(){
+        if(!live)return; if(p.hp<=0)location.reload();
+        ticks=(ticks+0.4)%1440; p.vy+=0.8; p.y+=p.vy;
+        if(check(p.x,p.y)){if(p.vy>0){while(check(p.x,p.y))p.y-=0.5;p.gr=true;}else{while(check(p.x,p.y))p.y+=0.5;}p.vy=0;}else p.gr=false;
+        let dx=(keys['KeyD']?5:0)-(keys['KeyA']?5:0); if(dx!==0){p.x+=dx;if(check(p.x,p.y))p.x-=dx;}
+        if(keys['Space']&&p.gr)p.vy=-14;
+        ents.forEach(e=>{
+            e.vy+=0.8;e.y+=e.vy;if(check(e.x,e.y)){if(e.vy>0)while(check(e.x,e.y))e.y-=0.5;e.vy=0;}
+            if(e.type==='ally'){
+                if(p.hit&&p.hit.hp>0){e.x+=(p.hit.x>e.x?4:-4);if(Math.abs(e.x-p.hit.x)<60)atk(e,p.hit);}
+                else{if(Math.abs(p.x-e.x)>150)e.x+=(p.x>e.x?2.5:-2.5);ents.forEach(m=>{if(m.type==='mob'&&Math.abs(m.x-e.x)<80)atk(e);});}
+            }else if(e.type==='mob'){e.x+=(p.x>e.x?2.2:-2.2);if(Math.abs(e.x-p.x)<30)p.hp-=0.2;}
+        });
+        if((ticks>1050||ticks<350)&&Math.random()<0.015)spawn('mob',p.x+(Math.random()>0.5?600:-600));
+        ents=ents.filter(e=>e.hp>0);
+        document.getElementById('hp').innerText=Math.ceil(p.hp);
+        document.getElementById('pos').innerText=Math.floor(p.x/32)+','+Math.floor(p.y/32);
+        document.getElementById('tm').innerText=Math.floor(ticks/60).toString().padStart(2,'0')+':'+Math.floor(ticks%60).toString().padStart(2,'0');
+        render(); requestAnimationFrame(loop);
+    }
+    function render(){
+        ctx.fillStyle=(ticks>1050||ticks<350)?'#050510':'#87ceeb'; ctx.fillRect(0,0,cvs.width,cvs.height);
+        let cx=p.x-cvs.width/2,cy=p.y-cvs.height/2;
+        for(let x=Math.floor(cx/32);x<=Math.ceil((cx+cvs.width)/32);x++){
+            for(let y=Math.floor(cy/32);y<=Math.ceil((cy+cvs.height)/32);y++){
+                let b=getB(x,y);if(b>0){ctx.fillStyle=b===2?'#2ecc71':(b===1?'#795548':'#bdc3c7');ctx.fillRect(x*32-cx,y*32-cy,32.5,32.5);}
             }
         }
-
-        entities.concat(p).forEach(e => {
-            ctx.fillStyle = e===p?'#e67e22':(e.type==='ally'?'#3498db':'#e74c3c');
-            ctx.fillRect(e.x-cx, e.y-cy, e.w, e.h);
-            ctx.fillStyle='red'; ctx.fillRect(e.x-cx, e.y-cy-10, e.w, 4);
-            ctx.fillStyle='lime'; ctx.fillRect(e.x-cx, e.y-cy-10, e.w*(e.hp/e.maxHp), 4);
+        ents.concat(p).forEach(e=>{
+            ctx.fillStyle=e===p?'#e67e22':(e.type==='ally'?'#3498db':(e.type==='mob'?'#2ecc71':'#f1c40f'));
+            ctx.fillRect(e.x-cx,e.y-cy,e.w,e.h);
+            ctx.fillStyle='red';ctx.fillRect(e.x-cx,e.y-cy-10,e.w,4);ctx.fillStyle='lime';ctx.fillRect(e.x-cx,e.y-cy-10,e.w*(e.hp/100),4);
         });
-
-        // 小地圖更新
-        mCtx.fillStyle='#000'; mCtx.fillRect(0,0,150,150);
-        mCtx.save(); mCtx.translate(75, 75);
-        entities.concat(p).forEach(e => {
-            mCtx.fillStyle = e===p?'#fff':(e.type==='ally'?'#3498db':'#e74c3c');
-            mCtx.beginPath(); mCtx.arc((e.x-p.x)*0.15, (e.y-p.y)*0.15, 3, 0, 7); mCtx.fill();
-        });
-        mCtx.restore();
+        rctx.fillStyle='#000';rctx.fillRect(0,0,140,140);rctx.save();rctx.translate(70,70);
+        ents.concat(p).forEach(e=>{rctx.fillStyle=e===p?'#fff':(e.type==='ally'?'#3498db':'#e74c3c');let dx=(e.x-p.x)*0.1,dy=(e.y-p.y)*0.1;if(dx*dx+dy*dy<65*65){rctx.beginPath();rctx.arc(dx,dy,3,0,7);rctx.fill();}});rctx.restore();
     }
 </script>
 </body>
